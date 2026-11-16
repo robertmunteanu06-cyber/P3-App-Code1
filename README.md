@@ -1,0 +1,1 @@
+This is an app made for pubs, venues and artists, in order to help them collaborate. The pubs and venues can post applications for the concerts they are organizing and then the bands can apply for the gig with a descrpition of prior experience.
