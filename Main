@@ -1,0 +1,244 @@
+
+
+import java.io.*;
+import java.util.*;
+
+// ==========================================
+// 1. CUSTOM EXCEPTIONS
+// ==========================================
+class InvalidDataException extends Exception {
+    public InvalidDataException(String message) { super(message); }
+}
+
+class DuplicateApplicationException extends Exception {
+    public DuplicateApplicationException(String message) { super(message); }
+}
+
+
+interface Displayable {
+    void displayDetails();
+}
+
+interface StorageOperations {
+    void saveToFile(String filename) throws IOException;
+    void loadFromFile(String filename) throws IOException, ClassNotFoundException;
+}
+
+
+abstract class Profile implements Serializable {
+    protected String name;
+
+    public Profile(String name) {
+        this.name = name;
+    }
+    public String getName() { return name; }
+}
+
+
+class Artist extends Profile implements Displayable {
+    private String genre;
+    private String experienceCv;
+
+    public Artist(String name, String genre, String experienceCv) {
+        super(name);
+        this.genre = genre;
+        this.experienceCv = experienceCv;
+    }
+
+    @Override
+    public void displayDetails() {
+        System.out.println("Artist: " + name + " | Genre: " + genre);
+        System.out.println("CV/Experience: " + experienceCv);
+    }
+}
+
+
+class Venue extends Profile implements Displayable {
+    private String address;
+
+    public Venue(String name, String address) {
+        super(name);
+        this.address = address;
+    }
+
+    @Override
+    public void displayDetails() {
+        System.out.println("Venue: " + name + " | Location: " + address);
+    }
+}
+
+
+class Announcement implements Serializable, Displayable {
+    private String announcementId;
+    private Venue venue;
+    private String date;
+    private String requiredGenre;
+
+    public Announcement(String id, Venue venue, String date, String requiredGenre) {
+        this.announcementId = id;
+        this.venue = venue;
+        this.date = date;
+        this.requiredGenre = requiredGenre;
+    }
+
+    public String getId() { return announcementId; }
+
+    @Override
+    public void displayDetails() {
+        System.out.println("\n--- GIG ANNOUNCEMENT [" + announcementId + "] ---");
+        venue.displayDetails();
+        System.out.println("Date: " + date + " | Seeking: " + requiredGenre);
+        System.out.println("-----------------------------------");
+    }
+}
+
+
+class GigApplication implements Serializable, Displayable {
+    private Artist artist;
+    private String announcementId;
+    private String privateMessage;
+
+    public GigApplication(Artist artist, String announcementId, String privateMessage) {
+        this.artist = artist;
+        this.announcementId = announcementId;
+        this.privateMessage = privateMessage;
+    }
+
+    public String getAnnouncementId() { return announcementId; }
+    public String getArtistName() { return artist.getName(); }
+
+    @Override
+    public void displayDetails() {
+        System.out.println("\n--- NEW APPLICATION FOR GIG " + announcementId + " ---");
+        artist.displayDetails();
+        System.out.println("Message to Venue: " + privateMessage);
+    }
+}
+
+
+public class Main implements StorageOperations {
+    
+  
+    private List<Announcement> announcements = new ArrayList<>();
+
+    private Map<String, GigApplication> applications = new HashMap<>();
+
+    public static void main(String[] args) {
+        Main app = new Main();
+        Scanner scanner = new Scanner(System.in);
+        String filename = "app_data.ser";
+
+        try {
+            app.loadFromFile(filename);
+        } catch (IOException | ClassNotFoundException e) {
+            System.out.println("No previous data found. Starting fresh.");
+        }
+
+        while (true) {
+            System.out.println("\n1. Post Announcement (Venue)");
+            System.out.println("2. View Announcements");
+            System.out.println("3. Apply to Gig (Artist)");
+            System.out.println("4. Exit & Save");
+            System.out.print("Choose option: ");
+
+            try {
+                int choice = scanner.nextInt();
+                scanner.nextLine(); // consume newline
+
+                if (choice == 1) {
+                    System.out.print("Venue Name: ");
+                    String vName = scanner.nextLine();
+                    System.out.print("Location: ");
+                    String vLoc = scanner.nextLine();
+                    
+                   
+                    if (vName.trim().isEmpty() || vLoc.trim().isEmpty()) {
+                        throw new InvalidDataException("Venue details cannot be empty!");
+                    }
+
+                    Venue venue = new Venue(vName, vLoc);
+                    
+                    System.out.print("Gig Date (YYYY-MM-DD): ");
+                    String date = scanner.nextLine();
+                    System.out.print("Genre Needed: ");
+                    String genre = scanner.nextLine();
+                    
+                    String id = "GIG" + (app.announcements.size() + 1);
+                    app.announcements.add(new Announcement(id, venue, date, genre));
+                    System.out.println("Announcement posted with ID: " + id);
+
+                } else if (choice == 2) {
+                    if (app.announcements.isEmpty()) {
+                        System.out.println("No gigs available.");
+                    } else {
+                        for (Announcement a : app.announcements) {
+                            a.displayDetails();
+                        }
+                    }
+
+                } else if (choice == 3) {
+                    System.out.print("Enter Gig ID to apply for: ");
+                    String gigId = scanner.nextLine();
+                    
+                    System.out.print("Your Artist/Band Name: ");
+                    String aName = scanner.nextLine();
+                    System.out.print("Your Genre: ");
+                    String aGenre = scanner.nextLine();
+                    System.out.print("Short CV/Experience: ");
+                    String cv = scanner.nextLine();
+                    System.out.print("Private Message to Venue: ");
+                    String msg = scanner.nextLine();
+
+                    if (aName.trim().isEmpty() || msg.trim().isEmpty()) {
+                        throw new InvalidDataException("Name and Message are required!");
+                    }
+
+                    String appKey = gigId + "_" + aName;
+                    if (app.applications.containsKey(appKey)) {
+                        throw new DuplicateApplicationException("You have already applied to this gig!");
+                    }
+
+                    Artist artist = new Artist(aName, aGenre, cv);
+                    GigApplication application = new GigApplication(artist, gigId, msg);
+                    app.applications.put(appKey, application);
+                    System.out.println("Application sent successfully!");
+
+                } else if (choice == 4) {
+                    app.saveToFile(filename);
+                    System.out.println("Data saved. Exiting...");
+                    break;
+                } else {
+                    System.out.println("Invalid choice.");
+                }
+            // Handle language exception 3: InputMismatchException
+            } catch (InputMismatchException e) {
+                System.out.println("Error: Please enter a valid number.");
+                scanner.nextLine(); // clear bad input
+            } catch (InvalidDataException | DuplicateApplicationException e) {
+                System.out.println("Application Error: " + e.getMessage());
+            } catch (IOException e) {
+                System.out.println("Critical Error: Could not save data.");
+            }
+        }
+        scanner.close();
+    }
+
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public void saveToFile(String filename) throws IOException {
+        try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(filename))) {
+            out.writeObject(announcements);
+            out.writeObject(applications);
+        }
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public void loadFromFile(String filename) throws IOException, ClassNotFoundException {
+        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(filename))) {
+            announcements = (List<Announcement>) in.readObject();
+            applications = (Map<String, GigApplication>) in.readObject();
+        }
+    }
+}
